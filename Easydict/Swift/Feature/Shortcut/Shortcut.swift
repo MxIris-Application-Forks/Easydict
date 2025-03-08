@@ -43,15 +43,15 @@ extension ShortcutType {
     func localizedStringKey() -> String {
         switch self {
         case .inputTranslate:
-            "input_translate"
+            "menu_input_translate"
         case .snipTranslate:
-            "snip_translate"
+            "menu_screenshot_Translate"
         case .selectTranslate:
-            "select_translate"
+            "menu_selectWord_Translate"
         case .silentScreenshotOcr:
-            "silent_screenshot_ocr"
+            "menu_silent_screenshot_OCR"
         case .showMiniWindow:
-            "show_mini_window"
+            "menu_show_mini_window"
         case .clearInput:
             "shortcut_clear_input"
         case .clearAll:
@@ -115,6 +115,14 @@ class Shortcut: NSObject {
 
     var confictMenuItem: NSMenuItem?
 
+    override func copy() -> Any {
+        self // SingletonClass.shared
+    }
+
+    override func mutableCopy() -> Any {
+        self // SingletonClass.shared
+    }
+
     @objc
     static func setupShortcut() {
         let shortcut = Shortcut.shared
@@ -127,14 +135,6 @@ class Shortcut: NSObject {
         } else {
             // do nothing
         }
-    }
-
-    override func copy() -> Any {
-        self // SingletonClass.shared
-    }
-
-    override func mutableCopy() -> Any {
-        self // SingletonClass.shared
     }
 
     // Optional

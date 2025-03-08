@@ -6,14 +6,12 @@
 //  Copyright © 2023 izual. All rights reserved.
 //
 
-// swiftlint:disable all
-
 import Foundation
 
 struct AliTranslateType: Equatable {
     static let unsupported = AliTranslateType(sourceLanguage: "unsupported", targetLanguage: "unsupported")
 
-    /// https://help.aliyun.com/zh/machine-translation/support/supported-languages-and-codes#h2-url-1
+    /// Ali supported languages: https://help.aliyun.com/zh/machine-translation/support/supported-languages-and-codes#h2-url-1
     static let supportLanguagesDictionary: [Language: String] = [
         .auto: "auto",
         .simplifiedChinese: "zh",
@@ -65,6 +63,7 @@ struct AliTranslateType: Equatable {
         .croatian: "hbs",
         .mongolian: "mn",
         .hebrew: "he",
+        .georgian: "ka",
     ]
 
     var sourceLanguage: String
@@ -103,5 +102,3 @@ struct AliTranslateType: Equatable {
         return AliTranslateType(sourceLanguage: fromLanguage, targetLanguage: toLanguage)
     }
 }
-
-// swiftlint:enable all

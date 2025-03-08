@@ -7,12 +7,10 @@
 //
 
 #import "EZSchemeParser.h"
-#import "EZYoudaoTranslate.h"
 #import "EZServiceTypes.h"
 #import "EZDeepLTranslate.h"
-#import "EZConfiguration+EZUserData.h"
-#import "EZConfiguration.h"
 #import "EZLocalStorage.h"
+#import "Easydict-Swift.h"
 
 @implementation EZSchemeParser
 
@@ -194,26 +192,6 @@
     NSArray *readWriteKeys = @[
         EZBetaFeatureKey,
         
-        EZOpenAIAPIKey,
-        EZOpenAIDictionaryKey,
-        EZOpenAISentenceKey,
-        EZOpenAIServiceUsageStatusKey,
-        EZOpenAIModelKey,
-        EZOpenAIAvailableModelsKey,
-        
-        EZCustomOpenAINameKey,
-        EZCustomOpenAIEndPointKey,
-        EZCustomOpenAIAPIKey,
-        EZCustomOpenAIAvailableModelsKey,
-        EZCustomOpenAIModelKey,
-        EZCustomOpenAITranslationKey,
-        EZCustomOpenAIDictionaryKey,
-        EZCustomOpenAISentenceKey,
-        EZCustomOpenAIServiceUsageStatusKey,
-        
-        EZYoudaoTranslationKey,
-        EZYoudaoDictionaryKey,
-        
         EZDeepLAuthKey,
         EZDeepLTranslateEndPointKey,
         EZDeepLTranslationAPIKey,
@@ -225,7 +203,9 @@
         
         EZAliAccessKeyId,
         EZAliAccessKeySecret,
-        EZGeminiAPIKey,
+        
+        EZVolcanoAccessKeyID,
+        EZVolcanoSecretAccessKey,
 
         EZIntelligentQueryModeKey,
     ];
@@ -241,7 +221,6 @@
         
         // easydict://resetUserDefaultsData
         EZResetUserDefaultsDataKey,
-        
     ];
     
     return actionKeys;
@@ -304,33 +283,6 @@
         }
     }
     return dict;
-}
-
-- (NSString *)keyValuesOfServiceType:(EZServiceType)serviceType key:(NSString *)key value:(NSString *)value {
-    /**
-     easydict://writeKeyValue?ServiceType=OpenAI&ServiceUsageStatus=1
-     
-     easydict://writeKeyValue?OpenAIServiceUsageStatus=1
-     
-     easydict://writeKeyValue?OpenAIQueryServiceType=1
-     */
-    NSString *keyValueString = @"";
-    
-    NSArray *allowdKeyNames = @[
-        EZServiceUsageStatusKey,
-        EZQueryTextTypeKey,
-    ];
-    
-    NSArray *allServiceTypes = [EZServiceTypes.shared allServiceTypes];
-    
-    BOOL validKey = [allServiceTypes containsObject:serviceType] && [allowdKeyNames containsObject:key];
-    
-    if (validKey) {
-        NSString *keyString = [NSString stringWithFormat:@"%@%@", serviceType, key];
-        keyValueString = [NSString stringWithFormat:@"%@=%@", keyString, value];
-    }
-    
-    return keyValueString;
 }
 
 @end

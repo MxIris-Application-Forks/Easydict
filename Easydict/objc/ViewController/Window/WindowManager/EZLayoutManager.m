@@ -8,7 +8,7 @@
 
 #import "EZLayoutManager.h"
 #import "EZBaseQueryWindow.h"
-#import "EZConfiguration.h"
+#import "Easydict-Swift.h"
 
 @interface EZLayoutManager ()
 
@@ -44,8 +44,8 @@ static EZLayoutManager *_instance;
 
 - (void)commonInitialize {
     self.screen = NSScreen.mainScreen;
-    self.minimumWindowSize = CGSizeMake(360, 70);
-    
+    self.minimumWindowSize = CGSizeMake(360, 40);
+
     Configuration *configuration = [Configuration shared];
     
     self.miniWindowFrame = [configuration windowFrameWithType:EZWindowTypeMini];
@@ -107,6 +107,10 @@ static EZLayoutManager *_instance;
 
 
 - (CGFloat)inputViewMinHeight:(EZWindowType)type {
+    if (![self showInputTextField:type]) {
+        return 0;
+    }
+
     switch (type) {
         case EZWindowTypeMain:
             return 75; // three line
@@ -120,6 +124,10 @@ static EZLayoutManager *_instance;
 }
 
 - (CGFloat)inputViewMaxHeight:(EZWindowType)type {
+    if (![self showInputTextField:type]) {
+        return 0;
+    }
+
     switch (type) {
         case EZWindowTypeMain:
             return NSScreen.mainScreen.frame.size.height * 0.3;
@@ -193,21 +201,47 @@ static EZLayoutManager *_instance;
 
 - (void)updateWindowFrame:(EZBaseQueryWindow *)window {
     EZWindowType windowType = window.windowType;
+
+    CGRect windowFrame = window.frame;
+
+    // Record floating window frame
+    [Configuration.shared setWindowFrame:windowFrame windowType:windowType];
+
     switch (windowType) {
         case EZWindowTypeMain:
-            _mainWindowFrame = window.frame;
+            self.mainWindowFrame = windowFrame;
             break;
-        case EZWindowTypeFixed:
-            _fixedWindowFrame = window.frame;
+        case EZWindowTypeFixed: {
+            self.fixedWindowFrame = windowFrame;
+
+            // Record screenVisibleFrame when fixedWindowPosition is EZShowWindowPositionFormer
+            if (Configuration.shared.fixedWindowPosition == EZShowWindowPositionFormer) {
+                CGPoint fixedWindowCenter = NSMakePoint(NSMidX(windowFrame), NSMidY(windowFrame));
+
+                // Update lastPoint to update current active screen
+                EZWindowManager.shared.lastPoint = fixedWindowCenter;
+                Configuration.shared.screenVisibleFrame = self.screen.visibleFrame;
+            }
             break;
+        }
         case EZWindowTypeMini:
-            _miniWindowFrame = window.frame;
+            self.miniWindowFrame = window.frame;
             break;
         default:
             break;
     }
-    
-    [Configuration.shared setWindowFrame:window.frame windowType:windowType];
+}
+
+- (BOOL)showInputTextField:(EZWindowType)windowType {
+    return [Configuration.shared showInputTextFieldWithKey:WindowConfigurationKeyInputFieldCellVisible windowType:windowType];
+}
+
+- (void)updateScreen:(NSScreen *)screen {
+    _screen = screen;
+
+//    MMLogInfo(@"update screen: %@", @(screen.visibleFrame));
+
+    [self setupMaximumWindowSize:screen];
 }
 
 @end

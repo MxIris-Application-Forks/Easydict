@@ -15,8 +15,8 @@
 #import "EZGoogleTranslate.h"
 #import "NSString+EZUtils.h"
 #import "EZServiceTypes.h"
-#import "EZConfiguration.h"
 #import <sys/xattr.h>
+#import "Easydict-Swift.h"
 
 static NSString *const kFileExtendedAttributes = @"NSFileExtendedAttributes";
 
@@ -130,7 +130,7 @@ static NSString *const kItemWhereFroms = @"com.apple.metadata:kMDItemWhereFroms"
 - (EZQueryService *)defaultTTSService {
     EZServiceType defaultTTSServiceType = Configuration.shared.defaultTTSServiceType;
     if (![_defaultTTSService.serviceType isEqualToString:defaultTTSServiceType]) {
-        EZQueryService *defaultTTSService = [EZServiceTypes.shared serviceWithType:defaultTTSServiceType];
+        EZQueryService *defaultTTSService = [EZServiceTypes.shared serviceWithTypeId:defaultTTSServiceType];
         _defaultTTSService = defaultTTSService;
         _defaultTTSService.audioPlayer = self;
         
@@ -226,13 +226,13 @@ static NSString *const kItemWhereFroms = @"com.apple.metadata:kMDItemWhereFroms"
     EZQueryService *service = designatedService ?: self.service;
     
     // 3. get service text audio URL, and play.
-    [service textToAudio:text fromLanguage:language completion:^(NSString *_Nullable url, NSError *_Nullable error) {
+    [service textToAudio:text fromLanguage:language accent:accent completion:^(NSString *_Nullable url, NSError *_Nullable error) {
         self.currentServiceType = service.serviceType;
         
         if (!error && url.length) {
             [self playTextAudio:text
                        language:language
-                         accent:nil
+                         accent:accent
                        audioURL:url
               designatedService:service];
         } else {

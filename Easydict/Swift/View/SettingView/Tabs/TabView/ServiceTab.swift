@@ -11,12 +11,11 @@ import SwiftUI
 
 // MARK: - ServiceTab
 
-@available(macOS 13, *)
 struct ServiceTab: View {
     // MARK: Internal
 
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 0) {
             VStack {
                 WindowTypePicker(windowType: $viewModel.windowType)
                     .padding()
@@ -29,31 +28,36 @@ struct ServiceTab: View {
                 .padding(.bottom)
                 .padding(.horizontal)
                 .frame(minWidth: 260)
+                .onReceive(serviceHasUpdatedNotification) { _ in
+                    viewModel.updateServices()
+                }
             }
 
             Group {
                 if let service = viewModel.selectedService {
-                    // To provide configuration options for a service, follow these steps
-                    // 1. If the Service is an object of Objc, expose it to Swift.
-                    // 2. Create a new file in the Utility - Extensions - QueryService+ConfigurableService,
-                    // 3. referring to OpenAIService+ConfigurableService, `extension` the Service
-                    // as `ConfigurableService` to provide the configuration items.
-                    if let service = service as? (any ConfigurableService) {
-                        AnyView(service.configurationView())
-                    } else {
-                        HStack {
+                    VStack(alignment: .leading) {
+                        Button("setting.service.back") {
+                            viewModel.selectedService = nil
+                        }
+                        .padding()
+
+                        if let view = service.configurationListItems() as? (any View) {
+                            Form {
+                                AnyView(view)
+                            }
+                            .formStyle(.grouped)
+                        } else {
                             Spacer()
-                            // No configuration for service xxx
-                            Text("setting.service.detail.no_configuration \(service.name())")
+                            HStack {
+                                Spacer()
+                                Text("setting.service.detail.no_configuration \(service.name())")
+                                Spacer()
+                            }
                             Spacer()
                         }
                     }
                 } else {
-                    HStack {
-                        Spacer()
-                        Text("setting.service.detail.no_selection")
-                        Spacer()
-                    }
+                    WindowConfigurationView(windowType: viewModel.windowType)
                 }
             }
             .layoutPriority(1)
@@ -63,17 +67,29 @@ struct ServiceTab: View {
 
     // MARK: Private
 
+    private let serviceHasUpdatedNotification = NotificationCenter.default
+        .publisher(for: .serviceHasUpdated)
+
     @StateObject private var viewModel: ServiceTabViewModel = .init()
 }
 
 // MARK: - ServiceTabViewModel
 
 private class ServiceTabViewModel: ObservableObject {
+    // MARK: Lifecycle
+
+    init(windowType: EZWindowType = .fixed) {
+        self.windowType = windowType
+        self.services = EZLocalStorage.shared().allServices(windowType)
+    }
+
+    // MARK: Internal
+
     @Published var selectedService: QueryService?
 
-    @Published private(set) var services: [QueryService] = EZLocalStorage.shared().allServices(.mini)
+    @Published private(set) var services: [QueryService]
 
-    @Published var windowType = EZWindowType.mini {
+    @Published var windowType: EZWindowType {
         didSet {
             if oldValue != windowType {
                 updateServices()
@@ -83,45 +99,43 @@ private class ServiceTabViewModel: ObservableObject {
     }
 
     func updateServices() {
-        services = getServices()
-    }
+        services = EZLocalStorage.shared().allServices(windowType)
 
-    func getServices() -> [QueryService] {
-        EZLocalStorage.shared().allServices(windowType)
+        let isSelectedExist =
+            services
+                .contains {
+                    $0.serviceTypeWithUniqueIdentifier()
+                        == selectedService?.serviceTypeWithUniqueIdentifier()
+                }
+        if !isSelectedExist {
+            selectedService = nil
+        }
     }
 
     func onServiceItemMove(fromOffsets: IndexSet, toOffset: Int) {
         var services = services
-
         services.move(fromOffsets: fromOffsets, toOffset: toOffset)
 
-        let serviceTypes = services.map { service in
-            service.serviceType()
-        }
-
+        let serviceTypes = services.map { $0.serviceTypeWithUniqueIdentifier() }
         EZLocalStorage.shared().setAllServiceTypes(serviceTypes, windowType: windowType)
 
         postUpdateServiceNotification()
-
         updateServices()
     }
 
     func postUpdateServiceNotification() {
-        let userInfo: [String: Any] = [EZWindowTypeKey: windowType.rawValue]
-        let notification = Notification(name: .serviceHasUpdated, object: nil, userInfo: userInfo)
-        NotificationCenter.default.post(notification)
+        NotificationCenter.default.postServiceUpdateNotification(windowType: windowType)
     }
 }
 
 // MARK: - ServiceItems
 
-@available(macOS 13.0, *)
 private struct ServiceItems: View {
     // MARK: Internal
 
     var body: some View {
         ForEach(servicesWithID, id: \.1) { service, _ in
-            ServiceItemView(service: service)
+            ServiceItemView(service: service, viewModel: viewModel)
                 .tag(service)
         }
         .onMove(perform: viewModel.onServiceItemMove)
@@ -133,20 +147,21 @@ private struct ServiceItems: View {
 
     private var servicesWithID: [(QueryService, String)] {
         viewModel.services.map { service in
-            (service, service.serviceType().rawValue)
+            (service, service.serviceTypeWithUniqueIdentifier())
         }
     }
 }
 
 // MARK: - ServiceItemViewModel
 
+@MainActor
 private class ServiceItemViewModel: ObservableObject {
     // MARK: Lifecycle
 
-    init(_ service: QueryService) {
+    init(_ service: QueryService, viewModel: ServiceTabViewModel) {
         self.service = service
-        self.isEnable = service.enabled
         self.name = service.name()
+        self.viewModel = viewModel
 
         cancellables.append(
             serviceUpdatePublisher
@@ -156,14 +171,65 @@ private class ServiceItemViewModel: ObservableObject {
         )
     }
 
+    // MARK: Public
+
+    /// Try to enable the service, if the service is StreamService, we need to validate it first.
+    public func tryEnableService() {
+        // If service is not StreamService, we can enable it directly
+        if !service.isKind(of: StreamService.self) {
+            updateServiceStatus(enabled: true)
+            return
+        }
+
+        isValidating = true
+
+        Task {
+            do {
+                defer { isValidating = false }
+
+                let result = await service.validate()
+                if let error = result.error {
+                    throw error
+                }
+                updateServiceStatus(enabled: true)
+            } catch {
+                logError("\(self.service.serviceType().rawValue) validate error: \(error)")
+                self.error = error
+                self.showErrorAlert = true
+            }
+        }
+    }
+
     // MARK: Internal
 
     let service: QueryService
 
-    @Published var isEnable = false
+    @Published var isValidating = false
     @Published var name = ""
 
+    @Published var showErrorAlert = false
+    @Published var error: (any Error)?
+
+    unowned var viewModel: ServiceTabViewModel
+
+    var isEnable: Bool {
+        get {
+            service.enabled
+        }
+        set {
+            // turn on service
+            if newValue {
+                tryEnableService()
+            } else {
+                // turn off service
+                updateServiceStatus(enabled: false)
+            }
+        }
+    }
+
     // MARK: Private
+
+    @EnvironmentObject private var serviceTabViewModel: ServiceTabViewModel
 
     private var cancellables: [AnyCancellable] = []
 
@@ -179,17 +245,23 @@ private class ServiceItemViewModel: ObservableObject {
         guard serviceType == service.serviceType().rawValue else { return }
         name = service.name()
     }
+
+    /// Update service enabled status, and post update service notification.
+    private func updateServiceStatus(enabled: Bool) {
+        service.enabled = enabled
+        EZLocalStorage.shared().setService(service, windowType: viewModel.windowType)
+        viewModel.postUpdateServiceNotification()
+    }
 }
 
 // MARK: - ServiceItemView
 
-@available(macOS 13.0, *)
 private struct ServiceItemView: View {
     // MARK: Lifecycle
 
-    init(service: QueryService) {
+    init(service: QueryService, viewModel: ServiceTabViewModel) {
         self.service = service
-        self.serviceItemViewModel = ServiceItemViewModel(service)
+        self.serviceItemViewModel = ServiceItemViewModel(service, viewModel: viewModel)
     }
 
     // MARK: Internal
@@ -197,31 +269,49 @@ private struct ServiceItemView: View {
     let service: QueryService
 
     var body: some View {
-        Toggle(isOn: $serviceItemViewModel.isEnable) {
+        Group {
             HStack {
-                Image(service.serviceType().rawValue)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 20.0, height: 20.0)
-                Text(service.name())
-                    .lineLimit(1)
+                HStack {
+                    Image(service.serviceType().rawValue)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20.0, height: 20.0)
+                    Text(service.name())
+                        .lineLimit(1)
+                }
+                Spacer()
+                // Use a fixed width container for both controls, to make sure they are center aligned.
+                ZStack {
+                    if serviceItemViewModel.isValidating {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Toggle(
+                            serviceItemViewModel.service.name(),
+                            isOn: $serviceItemViewModel.isEnable
+                        )
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small) // size: 32*18
+                    }
+                }
+                .frame(width: 32)
             }
         }
-        .onReceive(serviceItemViewModel.$isEnable) { newValue in
-            guard service.enabled != newValue else { return }
-            service.enabled = newValue
-            if newValue {
-                service.enabledQuery = newValue
-            }
-            EZLocalStorage.shared().setService(service, windowType: viewModel.windowType)
-            viewModel.postUpdateServiceNotification()
-        }
-        .toggleStyle(.switch)
-        .controlSize(.small)
         .listRowSeparator(.hidden)
         .listRowInsets(.init())
         .padding(.horizontal, 8)
         .padding(.vertical, 12)
+        .alert(
+            "setting.service.failed_to_enable_service \(serviceItemViewModel.service.name())",
+            isPresented: $serviceItemViewModel.showErrorAlert
+        ) {
+            Button("ok") {
+                serviceItemViewModel.showErrorAlert = false
+            }
+        } message: {
+            Text(serviceItemViewModel.error?.localizedDescription ?? "unknown_error")
+        }
     }
 
     // MARK: Private
@@ -233,13 +323,12 @@ private struct ServiceItemView: View {
 
 // MARK: - WindowTypePicker
 
-@available(macOS 13, *)
 private struct WindowTypePicker: View {
     @Binding var windowType: EZWindowType
 
     var body: some View {
         Picker(selection: $windowType) {
-            ForEach([EZWindowType]([.mini, .fixed, .main]), id: \.rawValue) { windowType in
+            ForEach([EZWindowType]([.fixed, .mini, .main]), id: \.rawValue) { windowType in
                 Text(windowType.localizedStringResource)
                     .tag(windowType)
             }

@@ -10,6 +10,7 @@
 #import <JLRoutes.h>
 #import "EZWindowManager.h"
 #import "EZSchemeParser.h"
+#import "Easydict-Swift.h"
 
 @implementation AppDelegate (EZURLScheme)
 
@@ -20,16 +21,16 @@
                            andSelector:@selector(handleURLEvent:withReplyEvent:)
                          forEventClass:kInternetEventClass
                             andEventID:kAEGetURL];
-    
+
     JLRoutes *routes = [JLRoutes globalRoutes];
     [routes addRoute:@"/:action" handler:^BOOL(NSDictionary *parameters) {
         NSString *action = parameters[@"action"];
         NSString *queryText = parameters[@"text"];
         NSURL *URL = parameters[JLRouteURLKey];
-        
+
         /**
          Recommend use easydict://query?text=xxx, easydict://xxx is a bit ambiguous and complex.
-         
+
          easydict://good
          easydict://query?text=good
          easydict://good%2Fgirl  (easydict://good/girl)
@@ -47,20 +48,20 @@
             }
         }
         [self showFloatingWindowAndAutoQueryText:queryText];
-        
+
         return YES; // return YES to say we have handled the route
     }];
-    
+
     // good / girl
     [routes addRoute:@"*" handler:^BOOL(NSDictionary *parameters) {
         MMLogInfo(@"parameters: %@", parameters);
-        
+
         NSURL *URL = parameters[JLRouteURLKey];
         MMLogInfo(@"URL: %@", URL);
-        
+
         NSString *queryText = [self extractQueryTextFromURL:URL];
         [self showFloatingWindowAndAutoQueryText:queryText];
-        
+
         return YES;
     }];
 }
@@ -70,14 +71,14 @@
 - (void)showFloatingWindowAndAutoQueryText:(NSString *)text {
     EZWindowManager *windowManager = [EZWindowManager shared];
     EZWindowType windowType = Configuration.shared.shortcutSelectTranslateWindowType;
-    
+
     [windowManager showFloatingWindowType:windowType
                                 queryText:text.trim
                                 autoQuery:YES
                                actionType:EZActionTypeInvokeQuery];
 }
 
-/// Get query text from url scheme, easydict://good%2Fgirl --> good%2Fgirl
+/// Get query text from URL scheme, easydict://good%2Fgirl --> good%2Fgirl
 - (NSString *)extractQueryTextFromURL:(NSURL *)URL {
     NSString *queryText = [URL.resourceSpecifier stringByReplacingOccurrencesOfString:@"//" withString:@"" options:NSLiteralSearch range:NSMakeRange(0, 2)];
     return queryText.decode;
@@ -86,23 +87,31 @@
 - (void)handleURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent {
     NSString *urlString = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
     /**
-     hello, #girl, good
-     
      We need to encode the URL to avoid JLRoutes routing failures. PopClip
-     
+
+     hello, #girl, good
+
      ---
-     
+
      urlString may have been encoded, so we need to check it.
-     
-     https://github.com/tisfeng/Easydict/issues/78#issuecomment-1862752708
+
+     Fix: https://github.com/tisfeng/Easydict/issues/78#issuecomment-1862752708
+
+     ---
+
+     We need to encode some special characters, such as '&'.
+     Fix: https://github.com/tisfeng/Easydict/issues/761
+
+     easydict://query?text=Agent Mode & Auto Context
+
      */
-    NSURL *URL = [NSURL URLWithString:urlString.encodeSafely];
-    
+    NSURL *URL = [NSURL URLWithString:urlString.encodeIncludingAmpersandSafely];
+
     // easydict://query?text=good, easydict://query?text=你好
     if ([URL.scheme containsString:EZEasydictScheme]) {
         MMLogInfo(@"handle URL: %@", URL);
     }
-    
+
     [JLRoutes routeURL:URL];
 }
 

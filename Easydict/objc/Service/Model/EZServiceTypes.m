@@ -9,14 +9,12 @@
 #import "EZServiceTypes.h"
 #import "EZGoogleTranslate.h"
 #import "EZBaiduTranslate.h"
-#import "EZYoudaoTranslate.h"
 #import "EZDeepLTranslate.h"
-#import "EZVolcanoTranslate.h"
 #import "EZAppleService.h"
 #import "EZBingService.h"
-#import "EZConfiguration.h"
 #import "EZAppleDictionary.h"
 #import "EZNiuTransTranslate.h"
+#import "Easydict-Swift.h"
 
 @interface EZServiceTypes ()
 
@@ -49,34 +47,49 @@ static EZServiceTypes *_instance;
 - (MMOrderedDictionary<EZServiceType, Class> *)allServiceDict {
     MMOrderedDictionary *allServiceDict = [[MMOrderedDictionary alloc] initWithKeysAndObjects:
                                            EZServiceTypeAppleDictionary, [EZAppleDictionary class],
-                                           EZServiceTypeYoudao, [EZYoudaoTranslate class],
+                                           EZServiceTypeYoudao, [EZYoudaoService class],
                                            EZServiceTypeOpenAI, [EZOpenAIService class],
+                                           EZServiceTypeDeepSeek, [EZDeepSeekService class],
                                            EZServiceTypeBuiltInAI, [EZBuiltInAIService class],
+                                           EZServiceTypeGemini, [EZGeminiService class],
+                                           EZServiceTypeOllama, [EZOllamaService class],
+                                           EZServiceTypePolishing, [EZPolishingService class],
+                                           EZServiceTypeSummary, [EZSummaryService class],
                                            EZServiceTypeCustomOpenAI, [EZCustomOpenAIService class],
                                            EZServiceTypeDeepL, [EZDeepLTranslate class],
                                            EZServiceTypeGoogle, [EZGoogleTranslate class],
                                            EZServiceTypeApple, [EZAppleService class],
                                            EZServiceTypeBaidu, [EZBaiduTranslate class],
                                            EZServiceTypeBing, [EZBingService class],
-                                           EZServiceTypeVolcano, [EZVolcanoTranslate class],
+                                           EZServiceTypeVolcano, [EZVolcanoService class],
                                            EZServiceTypeNiuTrans, [EZNiuTransTranslate class],
                                            EZServiceTypeCaiyun, [EZCaiyunService class],
                                            EZServiceTypeTencent, [EZTencentService class],
-                                           EZServiceTypeAli, [EZAliService class],
-                                           EZServiceTypeGemini, [EZGeminiService class],
+                                           EZServiceTypeAlibaba, [EZAliService class],
                                            nil];
     return allServiceDict;
 }
 
-- (nullable EZQueryService *)serviceWithType:(EZServiceType)type {
+// pass service type with id format like `EZServiceTypeCustomOpenAI#UUID` to support multi instances
+- (nullable EZQueryService *)serviceWithTypeId:(NSString *)typeIdIfHave {
+    NSString *type = typeIdIfHave;
+    NSString *uuid = @"";
+    if ([typeIdIfHave containsString:@"#"]) {
+        NSArray *items = [typeIdIfHave componentsSeparatedByString:@"#"];
+        type = items[0];
+        uuid = items[1];
+    }
     Class Cls = [[self allServiceDict] objectForKey:type];
-    return [Cls new];
+    EZQueryService *service = [Cls new];
+    service.uuid = uuid;
+    return service;
 }
 
-- (NSArray<EZQueryService *> *)servicesFromTypes:(NSArray<EZServiceType> *)types {
+
+- (NSArray<EZQueryService *> *)servicesFromTypes:(NSArray<NSString *> *)types {
     NSMutableArray *services = [NSMutableArray array];
-    for (EZServiceType type in types) {
-        EZQueryService *service = [self serviceWithType:type];
+    for (NSString *serviceType in types) {
+        EZQueryService *service = [self serviceWithTypeId:serviceType];
         // Maybe OpenAI has been disabled.
         if (service) {
             [services addObject:service];

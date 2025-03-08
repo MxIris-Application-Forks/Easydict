@@ -14,47 +14,42 @@ import Foundation
 public final class TencentService: QueryService {
     // MARK: Public
 
-    override public func serviceType() -> ServiceType {
+    public override func serviceType() -> ServiceType {
         .tencent
     }
 
-    override public func link() -> String? {
+    public override func link() -> String? {
         "https://fanyi.qq.com"
     }
 
-    override public func name() -> String {
+    public override func name() -> String {
         NSLocalizedString("tencent_translate", comment: "The name of Tencent Translate")
     }
 
-    override public func supportLanguagesDictionary() -> MMOrderedDictionary<AnyObject, AnyObject> {
-        let orderedDict = MMOrderedDictionary<AnyObject, AnyObject>()
-        for (key, value) in TencentTranslateType.supportLanguagesDictionary {
-            orderedDict.setObject(value as NSString, forKey: key.rawValue as NSString)
-        }
-        return orderedDict
+    public override func supportLanguagesDictionary() -> MMOrderedDictionary<AnyObject, AnyObject> {
+        TencentTranslateType.supportLanguagesDictionary.toMMOrderedDictionary()
     }
 
-    override public func ocr(_: EZQueryModel) async throws -> EZOCRResult {
+    public override func ocr(_: EZQueryModel) async throws -> EZOCRResult {
         logInfo("Tencent Translate currently does not support OCR")
         throw QueryServiceError.notSupported
     }
 
-    override public func needPrivateAPIKey() -> Bool {
+    public override func needPrivateAPIKey() -> Bool {
         true
     }
 
-    override public func hasPrivateAPIKey() -> Bool {
-        if secretId == defaultSecretId, secretKey == defaultSecretKey {
+    public override func hasPrivateAPIKey() -> Bool {
+        if secretId == tencentSecretId, secretKey == tencentSecretKey {
             return false
         }
         return true
     }
 
-    override public func totalFreeQueryCharacterCount() -> Int {
+    public override func totalFreeQueryCharacterCount() -> Int {
         500 * 10000
     }
 
-    // swiftlint:disable identifier_name
     override public func translate(
         _ text: String,
         from: Language,
@@ -65,7 +60,7 @@ public final class TencentService: QueryService {
         guard transType != .unsupported else {
             let showingFrom = EZLanguageManager.shared().showingLanguageName(from)
             let showingTo = EZLanguageManager.shared().showingLanguageName(to)
-            let error = EZError(type: .unsupportedLanguage, description: "\(showingFrom) --> \(showingTo)")
+            let error = QueryError(type: .unsupportedLanguage, message: "\(showingFrom) --> \(showingTo)")
             completion(result, error)
             return
         }
@@ -106,52 +101,50 @@ public final class TencentService: QueryService {
 
             switch response.result {
             case let .success(value):
-                result.from = from
-                result.to = to
-                result.queryText = text
                 result.translatedResults = value.Response.TargetText.components(separatedBy: "\n")
                 completion(result, nil)
             case let .failure(error):
                 logError("Tencent lookup error \(error)")
-                let ezError = EZError(nsError: error)
+                let queryError = QueryError(type: .api, message: error.localizedDescription)
 
                 if let data = response.data {
                     do {
-                        let errorResponse = try JSONDecoder().decode(TencentErrorResponse.self, from: data)
-                        ezError?.errorDataMessage = errorResponse.response.error.message
+                        let errorResponse = try JSONDecoder().decode(
+                            TencentErrorResponse.self, from: data
+                        )
+                        queryError.errorDataMessage = errorResponse.response.error.message
                     } catch {
                         logError("Failed to decode error response: \(error)")
                     }
                 }
-                completion(result, ezError)
+                completion(result, queryError)
             }
         }
+
         queryModel.setStop({
             request.cancel()
         }, serviceType: serviceType().rawValue)
     }
-
-    // swiftlint:enable identifier_name
 
     // MARK: Private
 
     // easydict://writeKeyValue?EZTencentSecretId=xxx
     private var secretId: String {
         let secretId = Defaults[.tencentSecretId]
-        if let secretId, !secretId.isEmpty {
+        if !secretId.isEmpty {
             return secretId
         } else {
-            return defaultSecretId
+            return tencentSecretId
         }
     }
 
     // easydict://writeKeyValue?EZTencentSecretKey=xxx
     private var secretKey: String {
         let secretKey = Defaults[.tencentSecretKey]
-        if let secretKey, !secretKey.isEmpty {
+        if !secretKey.isEmpty {
             return secretKey
         } else {
-            return defaultSecretKey
+            return tencentSecretKey
         }
     }
 }

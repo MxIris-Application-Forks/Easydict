@@ -8,17 +8,35 @@
 
 import SwiftUI
 
-struct EasyDictMainMenu: Commands {
+struct EasydictMainMenu: Commands {
     // MARK: Internal
 
     var body: some Commands {
-        // shortcut
+        // Shortcuts
         MainMenuShortcutCommand()
 
-        // Help
-        CommandGroup(replacing: CommandGroupPlacement.help, addition: {
+        // Override Help
+        CommandGroup(replacing: .help) {
             Button("menu_feedback") {
                 openURL(URL(string: "\(EZGithubRepoEasydictURL)/issues")!)
+            }
+        }
+
+        // Override About
+        CommandGroup(replacing: .appInfo) {
+            Button {
+                HostWindowManager.shared.showAboutWindow()
+            } label: {
+                Text("menubar.about")
+            }
+        }
+
+        // Check for updates
+        CommandGroup(after: .appInfo, addition: {
+            Button {
+                Configuration.shared.updater.checkForUpdates()
+            } label: {
+                Text("check_updates")
             }
         })
     }
@@ -26,4 +44,5 @@ struct EasyDictMainMenu: Commands {
     // MARK: Private
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.openWindow) private var openWindow
 }

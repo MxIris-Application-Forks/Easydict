@@ -8,20 +8,17 @@
 
 #import <Foundation/Foundation.h>
 #import "EZQueryResult.h"
-#import "EZError.h"
 #import "EZOCRResult.h"
 #import "EZQueryModel.h"
-#import "EZLayoutManager.h"
 #import "EZAudioPlayer.h"
 #import "MMOrderedDictionary.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-//@class EZAudioPlayer;
-
 NS_SWIFT_NAME(QueryService)
 @interface EZQueryService : NSObject
 
+@property (nonatomic, strong) NSString *uuid;
 @property (nonatomic, strong) EZQueryModel *queryModel;
 
 /// 翻译结果
@@ -52,18 +49,24 @@ NS_SWIFT_NAME(QueryService)
 /// 语言在支持的语言数组中的位置，不包含则返回0
 - (NSInteger)indexForLanguage:(EZLanguage)lang;
 
-/// 预处理查询，如遇到不支持的语言，直接报错提示。
-- (BOOL)prehandleQueryTextLanguage:(NSString *)text
-                              from:(EZLanguage)from
-                                to:(EZLanguage)to
-                        completion:(void (^)(EZQueryResult *result, NSError *_Nullable error))completion;
+/// 预处理查询，如遇到不支持的语言，直接报错，或是需要自动转换简体<-->繁体，则提前处理。
+///
+/// 返回 YES 表示已预处理过了，则后续无需再进行请求查询。
+- (BOOL)prehandleQueryText:(NSString *)text
+                      from:(EZLanguage)from
+                        to:(EZLanguage)to
+                completion:(void (^)(EZQueryResult *result, NSError *_Nullable error))completion;
 
 /// Get TTS langauge code.
-- (NSString *)getTTSLanguageCode:(EZLanguage)language;
+/// @param language Text language
+/// @param accent English text tone, such as en-US, en-GB
+- (NSString *)getTTSLanguageCode:(EZLanguage)language accent:(NSString *_Nullable)accent;
 
 - (EZQueryResult *)resetServiceResult;
 
 - (void)startQuery:(EZQueryModel *)queryModel completion:(void (^)(EZQueryResult *result, NSError *_Nullable error))completion;
+
+- (nullable id)configurationListItems;
 
 @end
 
@@ -72,8 +75,11 @@ NS_SWIFT_NAME(QueryService)
 
 @interface EZQueryService ()
 
-/// 服务类型
+/// 服务类型，例如 Google
 - (EZServiceType)serviceType;
+
+/// 唯一服务类型，默认为 serviceType。如果该服务支持复制，则后面添加 `#+UUID`，例如 Google#E621E1F8-C36C-495A-93FC-0C247A3E6E5F
+- (NSString *)serviceTypeWithUniqueIdentifier;
 
 /// 服务名字
 - (NSString *)name;
@@ -119,6 +125,10 @@ NS_SWIFT_NAME(QueryService)
 
 - (BOOL)isStream;
 
+- (BOOL)isDuplicatable;
+
+- (BOOL)isDeletable:(EZWindowType)type;
+
 /// 获取文本的语言
 /// @param text 文本
 /// @param completion 回调
@@ -130,13 +140,19 @@ NS_SWIFT_NAME(QueryService)
 /// @param completion 回调
 - (void)textToAudio:(NSString *)text fromLanguage:(EZLanguage)from completion:(void (^)(NSString *_Nullable url, NSError *_Nullable error))completion;
 
+/// 获取文本的音频的URL地址
+/// @param text 文本
+/// @param from 文本语言
+/// @param accent 英音 or 美音
+/// @param completion 回调
+- (void)textToAudio:(NSString *)text fromLanguage:(EZLanguage)from accent:(NSString *_Nullable)accent completion:(void (^)(NSString *_Nullable url, NSError *_Nullable error))completion;
+
 /// 识别图片文本
 /// @param image image对象
 /// @param from 文本语言
 /// @param to 目标语言
 /// @param completion 回调
 - (void)ocr:(NSImage *)image from:(EZLanguage)from to:(EZLanguage)to completion:(void (^)(EZOCRResult *_Nullable result, NSError *_Nullable error))completion;
-
 
 - (void)ocr:(EZQueryModel *)queryModel completion:(void (^)(EZOCRResult *_Nullable ocrResult, NSError *_Nullable error))completion;
 

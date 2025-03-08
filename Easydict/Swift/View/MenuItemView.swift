@@ -13,7 +13,6 @@ import ZipArchive
 
 // MARK: - MenuItemStore
 
-@available(macOS 13, *)
 final class MenuItemStore: ObservableObject {
     // MARK: Lifecycle
 
@@ -30,7 +29,6 @@ final class MenuItemStore: ObservableObject {
 
 // MARK: - MenuItemView
 
-@available(macOS 13, *)
 struct MenuItemView: View {
     // MARK: Internal
 
@@ -62,10 +60,7 @@ struct MenuItemView: View {
                 .keyboardShortcut(.init("q"))
         }
         .task {
-            let version = await EZMenuItemManager.shared().fetchRepoLatestVersion(EZGithubRepoEasydict)
-            await MainActor.run {
-                latestVersion = version
-            }
+            latestVersion = await fetchRepoLatestVersion(EZGithubRepoEasydict)
         }
     }
 
@@ -79,15 +74,6 @@ struct MenuItemView: View {
 
     @Environment(\.openURL) private var openURL
 
-    @ViewBuilder private var versionItem: some View {
-        Button(versionString) {
-            guard let versionURL = URL(string: "\(EZGithubRepoEasydictURL)/releases") else {
-                return
-            }
-            openURL(versionURL)
-        }
-    }
-
     private var versionString: String {
         let defaultLabel = "Easydict  \(currentVersion)"
         if let latestVersion,
@@ -95,6 +81,15 @@ struct MenuItemView: View {
             return defaultLabel + "  (✨\(latestVersion) )"
         } else {
             return defaultLabel
+        }
+    }
+
+    @ViewBuilder private var versionItem: some View {
+        Button(versionString) {
+            guard let versionURL = URL(string: "\(EZGithubRepoEasydictURL)/releases") else {
+                return
+            }
+            openURL(versionURL)
         }
     }
 
@@ -237,7 +232,6 @@ struct MenuItemView: View {
     }
 }
 
-@available(macOS 13, *)
 #Preview {
     MenuItemView()
 }

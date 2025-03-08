@@ -29,11 +29,11 @@ static CGFloat const EZAudioButtonRightPadding_1 = 1;
 static NSString *const EZBundleId = @"com.izual.Easydict";
 static NSString *const EZDebugBundleId = @"com.izual.Easydict-debug";
 
-
+/// tisfeng/Easydict
 static NSString *const EZGithubRepoEasydict = @"tisfeng/Easydict";
 static NSString *const EZGithubRepoEasydictURL = @"https://github.com/tisfeng/Easydict";
 
-static NSString *const EZUserAgent = @"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Mobile Safari/537.36";
+static NSString *const EZUserAgent = @"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
 
 
 // ???: If value is not 0.2, it seems will block animation, because default animationResizeTime is 0.2 ?
@@ -55,5 +55,7 @@ static NSInteger const EZMaxFiveWordSynonymCount = 5;
 static CGFloat const EZGetClipboardTextDelayTime = 0.1;
 
 static NSString *const EZOpenSettingsNotification = @"EZOpenSettingsNotification";
+
+static NSString *const EZQuickLinkButtonUpdateNotification = @"EZQuickLinkButtonUpdateNotification";
 
 #endif /* EZConst_h */

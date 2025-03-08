@@ -8,10 +8,10 @@
 
 #import "EZNiuTransTranslate.h"
 #import "EZNiuTransTranslateResponse.h"
+#import "Easydict-Swift.h"
 
 @interface EZNiuTransTranslate ()
 
-@property (nonatomic, copy) NSString *defaultAPIKey;
 @property (nonatomic, copy) NSString *apiKey;
 
 @end
@@ -28,7 +28,7 @@
     // easydict://writeKeyValue?EZNiuTransAPIKey=
     NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:EZNiuTransAPIKey];
     if (apiKey.length == 0) {
-        apiKey = self.defaultAPIKey;
+        apiKey = self.niutransAPIKey;
     }
     return apiKey;
 }
@@ -48,7 +48,7 @@
     return @"https://niutrans.com";
 }
 
-// Supported languages: https://niutrans.com/documents/contents/trans_text#languageList
+/// Niutrans translate supported languages: https://niutrans.com/documents/contents/trans_text#languageList
 - (MMOrderedDictionary<EZLanguage, NSString *> *)supportLanguagesDictionary {
     MMOrderedDictionary *orderedDict = [[MMOrderedDictionary alloc] initWithKeysAndObjects:
                                         EZLanguageAuto, @"auto",
@@ -60,6 +60,7 @@
                                         EZLanguageFrench, @"fr",
                                         EZLanguageSpanish, @"es",
                                         EZLanguagePortuguese, @"pt",
+                                        EZLanguageBrazilianPortuguese, @"pt-BR",
                                         EZLanguageItalian, @"it",
                                         EZLanguageGerman, @"de",
                                         EZLanguageRussian, @"ru",
@@ -100,6 +101,7 @@
                                         EZLanguageCroatian, @"hr",
                                         EZLanguageMongolian, @"mn",
                                         EZLanguageHebrew, @"he",
+                                        EZLanguageGeorgian, @"jy",
                                         nil];
     return orderedDict;
 }
@@ -113,7 +115,7 @@
 }
 
 - (BOOL)hasPrivateAPIKey {
-    return ![self.apiKey isEqualToString:self.defaultAPIKey];
+    return ![self.apiKey isEqualToString:self.niutransAPIKey];
 }
 
 - (NSInteger)totalFreeQueryCharacterCount {
@@ -158,9 +160,7 @@
                 if (errorMsg) {
                     message = [NSString stringWithFormat:@"%@, %@", errorCode, errorMsg];
                 }
-                NSError *error = [EZError errorWithType:EZErrorTypeAPI
-                                                         description:message
-                                                         request:task.currentRequest];
+                NSError *error = [EZQueryError errorWithType:EZQueryErrorTypeApi message:message];
                 completion(self.result, error);
             }
         }
